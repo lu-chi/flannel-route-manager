@@ -11,7 +11,7 @@ import (
 	"code.google.com/p/google-api-go-client/compute/v1"
 )
 
-var replacer := strings.NewReplacer(".", "-", "/", ".")
+var replacer = strings.NewReplacer(".", "-", "/", "-")
 
 type GoogleRouterManager struct {
 	computeService *compute.Service
@@ -60,5 +60,5 @@ func (rm GoogleRouterManager) Sync(routeTable map[string]string) error {
 }
 
 func formatRouteName(network, subnet string) string {
-	return fmt.Sprintf("%s-route-flannel-%s", rm.network, replacer.Replace(subnet))
+	return fmt.Sprintf("%s-route-flannel-%s", network, replacer.Replace(subnet))
 }

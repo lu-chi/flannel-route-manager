@@ -45,6 +45,9 @@ func init() {
 func main() {
 	flag.Parse()
 	log.SetFlags(0)
+	if project == "" {
+		log.Fatal("missing project ID")
+	}
 	var routeManager RouteManager
 	var err error
 	switch backend {
