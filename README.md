@@ -82,7 +82,7 @@ write_files:
 
 ### Create the Compute Instance
 
-The following command will create a GCE instance with flannel, running in allocate only mode, and the flannel-route-manager up and running. 
+The following command will create a GCE instance with flannel, running in subnet allocate only mode, and the flannel-route-manager up and running. 
 
 ```
 $ gcloud compute instances create flannel-route-manager-test \
