@@ -67,6 +67,8 @@ godep go build .
 
 ## Single Node Demo
 
+### Edit the Cloud Config
+
 Add your GCE project ID to the cloud-config.yaml file:
 
 ```
@@ -77,6 +79,8 @@ write_files:
     content: |
       GOOGLE_PROJECT_ID=""
 ```
+
+### Create the Compute Instance
 
 The following command will create a GCE instance with flannel and the flannel-route-manager up and running. 
 
