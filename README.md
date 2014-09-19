@@ -4,19 +4,28 @@ The flannel route manager syncs the [flannel](https://github.com/coreos/flannel)
 
 ## Backends
 
+flannel-route-manager has been designed to support multiple backends, but only ships a single backend today -- the google backend.
+
 ### google
+
+The google backend syncs the flannel route table from etcd to GCE for a specific GCE project and network. Currently routes are only created or updated for each subnet managed by flannel. Routes are created naming scheme:
+
+```
+default-route-flannel-10-0-63-0-24
+```
 
 #### Requirements
 
+* [enabled IP forwarding for instances](https://developers.google.com/compute/docs/networking#canipforward) 
 * [instance service account](https://developers.google.com/compute/docs/authentication#using)
 * [project ID](https://developers.google.com/compute/docs/overview#projectids)
 
 The google backend relies on instance service accounts for authenitcation. See [Preparing an instance to use service accounts](https://developers.google.com/compute/docs/authentication#using) for more details.
 
-Creating a compute instance with the right permissions:
+Creating a compute instance with the right permissions and IP forwarding enabled:
 
 ```
-$ gcloud compute instances create INSTANCE --scopes compute-rw
+$ gcloud compute instances create INSTANCE --can-ip-forward --scopes compute-rw
 ```
 
 ## Usage
