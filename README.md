@@ -24,7 +24,7 @@ Usage of ./flannel-route-manager:
 ### Example
 
 ```
-flannel-route-manager -project hightower-labs
+flannel-route-manager -project <project-id>
 ```
 
 ## Backends
