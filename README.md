@@ -35,7 +35,7 @@ flannel-route-manager has been designed to support multiple backends, but only s
 
 The google backend syncs the flannel route table from etcd to GCE for a specific GCE project and network. Currently routes are only created or updated for each subnet managed by flannel.
 
-Routes are created naming scheme:
+Route naming scheme:
 
 ```
 default-route-flannel-10-0-63-0-24
