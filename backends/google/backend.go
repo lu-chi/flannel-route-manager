@@ -60,5 +60,5 @@ func (rm GoogleRouterManager) Sync(routeTable map[string]string) error {
 }
 
 func formatRouteName(network, subnet string) string {
-	return fmt.Sprintf("%s-route-flannel-%s", network, replacer.Replace(subnet))
+	return fmt.Sprintf("flannel-%s-%s", network, replacer.Replace(subnet))
 }
