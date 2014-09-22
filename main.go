@@ -7,11 +7,11 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"strings"
 	"log"
 	"os"
 	"os/signal"
 	"path"
+	"strings"
 	"syscall"
 	"time"
 
@@ -24,8 +24,6 @@ var (
 	backend      string
 	etcdEndpoint string
 	etcdPrefix   string
-	network      string
-	project      string
 	syncInterval int
 )
 
@@ -37,22 +35,17 @@ func init() {
 	flag.StringVar(&backend, "backend", "google", "backend provider")
 	flag.StringVar(&etcdEndpoint, "etcd-endpoint", "http://127.0.0.1:4001", "etcd endpoint")
 	flag.StringVar(&etcdPrefix, "etcd-prefix", "/coreos.com/network", "etcd prefix")
-	flag.StringVar(&network, "network", "default", "google compute network")
-	flag.StringVar(&project, "project", "", "google compute project name")
 	flag.IntVar(&syncInterval, "sync-interval", 30, "sync interval")
 }
 
 func main() {
 	flag.Parse()
 	log.SetFlags(0)
-	if project == "" {
-		log.Fatal("missing project ID")
-	}
 	var routeManager RouteManager
 	var err error
 	switch backend {
 	case "google":
-		routeManager, err = google.New(project, network)
+		routeManager, err = google.New()
 		if err != nil {
 			log.Fatal(err)
 		}

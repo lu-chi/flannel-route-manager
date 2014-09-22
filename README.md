@@ -16,15 +16,13 @@ Usage of ./flannel-route-manager:
   -backend="google": backend provider
   -etcd-endpoint="http://127.0.0.1:4001": etcd endpoint
   -etcd-prefix="/coreos.com/network": etcd prefix
-  -network="default": google compute network
-  -project="": google compute project id
   -sync-interval=30: sync interval
 ```
 
 ### Example
 
 ```
-flannel-route-manager -project <project-id>
+flannel-route-manager
 ```
 
 ## Backends
@@ -38,7 +36,7 @@ The google backend syncs the flannel route table from etcd to GCE for a specific
 Route naming scheme:
 
 ```
-default-route-flannel-10-0-63-0-24
+flannel-default-10-0-63-0-24
 ```
 
 #### Requirements

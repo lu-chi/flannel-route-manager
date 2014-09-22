@@ -5,11 +5,16 @@ package google
 
 import (
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"path"
 	"strings"
 
 	"code.google.com/p/goauth2/compute/serviceaccount"
 	"code.google.com/p/google-api-go-client/compute/v1"
 )
+
+var metadataEndpoint = "http://169.254.169.254/computeMetadata/v1"
 
 var replacer = strings.NewReplacer(".", "-", "/", "-")
 
@@ -19,12 +24,20 @@ type GoogleRouterManager struct {
 	project        string
 }
 
-func New(project, network string) (*GoogleRouterManager, error) {
+func New() (*GoogleRouterManager, error) {
 	client, err := serviceaccount.NewClient(&serviceaccount.Options{})
 	if err != nil {
 		return nil, err
 	}
 	computeService, err := compute.New(client)
+	if err != nil {
+		return nil, err
+	}
+	network, err := networkFromMetadata()
+	if err != nil {
+		return nil, err
+	}
+	project, err := projectFromMetadata()
 	if err != nil {
 		return nil, err
 	}
@@ -61,4 +74,35 @@ func (rm GoogleRouterManager) Sync(routeTable map[string]string) error {
 
 func formatRouteName(network, subnet string) string {
 	return fmt.Sprintf("flannel-%s-%s", network, replacer.Replace(subnet))
+}
+
+func networkFromMetadata() (string, error) {
+	network, err := metadataGet("/instance/network-interfaces/0/network")
+	if err != nil {
+		return "", err
+	}
+	return path.Base(network), nil
+}
+
+func projectFromMetadata() (string, error) {
+	return metadataGet("/project/project-id")
+}
+
+func metadataGet(path string) (string, error) {
+	req, err := http.NewRequest("GET", metadataEndpoint+path, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Add("Metadata-Flavor", "Google")
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
