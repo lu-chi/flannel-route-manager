@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"encoding/json"
@@ -9,21 +9,26 @@ import (
 	"time"
 
 	"github.com/coreos/go-etcd/etcd"
+	"github.com/kelseyhightower/flannel-route-manager/backend"
 )
 
-type stateManager struct {
-	mu           sync.Mutex
+type routeInfo struct {
+	PublicIP string
+}
+
+type Server struct {
 	client       *etcd.Client
 	lastIndex    uint64
+	mu           sync.Mutex
 	prefix       string
-	routeManager RouteManager
+	routeManager backend.RouteManager
 	stopChan     chan bool
 	syncInterval int
 	wg           sync.WaitGroup
 }
 
-func newStateManager(etcdEndpoint, prefix string, syncInterval int, routeManager RouteManager) stateManager {
-	return stateManager{
+func New(etcdEndpoint, prefix string, syncInterval int, routeManager backend.RouteManager) *Server {
+	return &Server{
 		client:       etcd.NewClient([]string{etcdEndpoint}),
 		prefix:       path.Join(prefix, "subnets"),
 		routeManager: routeManager,
@@ -32,27 +37,27 @@ func newStateManager(etcdEndpoint, prefix string, syncInterval int, routeManager
 	}
 }
 
-func (sm stateManager) start() stateManager {
-	sm.syncAllRoutes()
-	go sm.monitorSubnets()
-	go sm.reconciler()
-	return sm
+func (s *Server) Start() *Server {
+	s.syncAllRoutes()
+	go s.monitorSubnets()
+	go s.reconciler()
+	return s
 }
 
-func (sm stateManager) stop() {
-	close(sm.stopChan)
-	sm.wg.Wait()
+func (s *Server) Stop() {
+	close(s.stopChan)
+	s.wg.Wait()
 }
 
-func (sm stateManager) syncAllRoutes() error {
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
+func (s *Server) syncAllRoutes() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	routeTable := make(map[string]string)
-	resp, err := sm.client.Get(sm.prefix, false, true)
+	resp, err := s.client.Get(s.prefix, false, true)
 	if err != nil {
 		return err
 	}
-	sm.lastIndex = resp.EtcdIndex
+	s.lastIndex = resp.EtcdIndex
 	for _, node := range resp.Node.Nodes {
 		subnet := strings.Replace(path.Base(node.Key), "-", "/", -1)
 		var ri routeInfo
@@ -63,16 +68,16 @@ func (sm stateManager) syncAllRoutes() error {
 		routeTable[ri.PublicIP] = subnet
 	}
 	log.Printf("syncing all routes")
-	err = sm.routeManager.Sync(routeTable)
+	err = s.routeManager.Sync(routeTable)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (sm stateManager) syncRoute(resp *etcd.Response) {
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
+func (s *Server) syncRoute(resp *etcd.Response) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	subnet := strings.Replace(path.Base(resp.Node.Key), "-", "/", -1)
 	switch resp.Action {
 	case "create", "set", "update":
@@ -82,12 +87,12 @@ func (sm stateManager) syncRoute(resp *etcd.Response) {
 			log.Println(err.Error())
 			return
 		}
-		err = sm.routeManager.Insert(ri.PublicIP, subnet)
+		err = s.routeManager.Insert(ri.PublicIP, subnet)
 		if err != nil {
 			log.Println(err.Error())
 		}
 	case "delete":
-		err := sm.routeManager.Delete(subnet)
+		err := s.routeManager.Delete(subnet)
 		if err != nil {
 			log.Println(err.Error())
 		}
@@ -96,41 +101,41 @@ func (sm stateManager) syncRoute(resp *etcd.Response) {
 	}
 }
 
-func (sm stateManager) monitorSubnets() {
-	sm.wg.Add(1)
-	defer sm.wg.Done()
+func (s *Server) monitorSubnets() {
+	s.wg.Add(1)
+	defer s.wg.Done()
 	respChan := make(chan *etcd.Response)
 	go func() {
 		for {
-			resp, err := sm.client.Watch(sm.prefix, sm.lastIndex, true, nil, sm.stopChan)
+			resp, err := s.client.Watch(s.prefix, s.lastIndex, true, nil, s.stopChan)
 			if err != nil {
 				log.Println(err.Error())
 				time.Sleep(10 * time.Second)
 				continue
 			}
-			sm.lastIndex = resp.Node.ModifiedIndex + 1
+			s.lastIndex = resp.Node.ModifiedIndex + 1
 			respChan <- resp
 		}
 	}()
 	for {
 		select {
 		case resp := <-respChan:
-			sm.syncRoute(resp)
-		case <-sm.stopChan:
+			s.syncRoute(resp)
+		case <-s.stopChan:
 			break
 		}
 	}
 }
 
-func (sm stateManager) reconciler() {
-	sm.wg.Add(1)
-	defer sm.wg.Done()
+func (s *Server) reconciler() {
+	s.wg.Add(1)
+	defer s.wg.Done()
 	for {
 		select {
-		case <-sm.stopChan:
+		case <-s.stopChan:
 			break
-		case <-time.After(time.Duration(sm.syncInterval) * time.Second):
-			sm.syncAllRoutes()
+		case <-time.After(time.Duration(s.syncInterval) * time.Second):
+			s.syncAllRoutes()
 		}
 	}
 }

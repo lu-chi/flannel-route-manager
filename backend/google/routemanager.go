@@ -12,13 +12,13 @@ var metadataEndpoint = "http://169.254.169.254/computeMetadata/v1"
 
 var replacer = strings.NewReplacer(".", "-", "/", "-")
 
-type GoogleRouterManager struct {
+type RouteManager struct {
 	computeService *compute.Service
 	network        *compute.Network
 	project        string
 }
 
-func New() (*GoogleRouterManager, error) {
+func New() (*RouteManager, error) {
 	client, err := serviceaccount.NewClient(&serviceaccount.Options{})
 	if err != nil {
 		return nil, err
@@ -39,7 +39,7 @@ func New() (*GoogleRouterManager, error) {
 	if err != nil {
 		return nil, err
 	}
-	rm := &GoogleRouterManager{
+	rm := &RouteManager{
 		computeService: computeService,
 		network:        network,
 		project:        project,
@@ -47,11 +47,11 @@ func New() (*GoogleRouterManager, error) {
 	return rm, nil
 }
 
-func (rm GoogleRouterManager) Delete(subnet string) error {
+func (rm RouteManager) Delete(subnet string) error {
 	return rm.delete(formatRouteName(rm.network.Name, subnet))
 }
 
-func (rm GoogleRouterManager) DeleteAllRoutes() error {
+func (rm RouteManager) DeleteAllRoutes() error {
 	var lastError error
 	rs, err := rm.routes()
 	if err != nil {
@@ -65,20 +65,20 @@ func (rm GoogleRouterManager) DeleteAllRoutes() error {
 	return lastError
 }
 
-func (rm GoogleRouterManager) Insert(ip, subnet string) error {
+func (rm RouteManager) Insert(ip, subnet string) error {
 	return rm.insert(ip, subnet)
 }
 
-func (rm GoogleRouterManager) Sync(routes map[string]string) error {
+func (rm RouteManager) Sync(routes map[string]string) error {
 	return rm.sync(routes)
 }
 
-func (rm GoogleRouterManager) delete(name string) error {
+func (rm RouteManager) delete(name string) error {
 	_, err := rm.computeService.Routes.Delete(rm.project, name).Do()
 	return err
 }
 
-func (rm GoogleRouterManager) insert(ip, subnet string) error {
+func (rm RouteManager) insert(ip, subnet string) error {
 	name := formatRouteName(rm.network.Name, subnet)
 	route := &compute.Route{
 		Name:      name,
@@ -92,7 +92,7 @@ func (rm GoogleRouterManager) insert(ip, subnet string) error {
 	return err
 }
 
-func (rm GoogleRouterManager) sync(in map[string]string) error {
+func (rm RouteManager) sync(in map[string]string) error {
 	existing := make(map[string]bool)
 	routemap, err := rm.routemap()
 	if err != nil {
@@ -118,7 +118,7 @@ func (rm GoogleRouterManager) sync(in map[string]string) error {
 	return nil
 }
 
-func (rm GoogleRouterManager) routemap() (map[string]*compute.Route, error) {
+func (rm RouteManager) routemap() (map[string]*compute.Route, error) {
 	m := make(map[string]*compute.Route)
 	routes, err := rm.routes()
 	if err != nil {
@@ -130,7 +130,7 @@ func (rm GoogleRouterManager) routemap() (map[string]*compute.Route, error) {
 	return m, nil
 }
 
-func (rm GoogleRouterManager) routes() ([]*compute.Route, error) {
+func (rm RouteManager) routes() ([]*compute.Route, error) {
 	rs := make([]*compute.Route, 0)
 	filter := fmt.Sprintf("name eq flannel-%s-.*", rm.network.Name)
 	routeList, err := rm.computeService.Routes.List(rm.project).Filter(filter).Do()
