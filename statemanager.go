@@ -33,7 +33,7 @@ func newStateManager(etcdEndpoint, prefix string, syncInterval int, routeManager
 }
 
 func (sm stateManager) start() stateManager {
-	sm.syncRoutes()
+	sm.syncAllRoutes()
 	go sm.monitorSubnets()
 	go sm.reconciler()
 	return sm
@@ -44,7 +44,7 @@ func (sm stateManager) stop() {
 	sm.wg.Wait()
 }
 
-func (sm stateManager) syncRoutes() error {
+func (sm stateManager) syncAllRoutes() error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	routeTable := make(map[string]string)
@@ -52,6 +52,7 @@ func (sm stateManager) syncRoutes() error {
 	if err != nil {
 		return err
 	}
+	sm.lastIndex = resp.EtcdIndex
 	for _, node := range resp.Node.Nodes {
 		subnet := strings.Replace(path.Base(node.Key), "-", "/", -1)
 		var ri routeInfo
@@ -61,7 +62,7 @@ func (sm stateManager) syncRoutes() error {
 		}
 		routeTable[ri.PublicIP] = subnet
 	}
-	log.Printf("syncing routes")
+	log.Printf("syncing all routes")
 	err = sm.routeManager.Sync(routeTable)
 	if err != nil {
 		return err
@@ -69,26 +70,52 @@ func (sm stateManager) syncRoutes() error {
 	return nil
 }
 
+func (sm stateManager) syncRoute(resp *etcd.Response) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	subnet := strings.Replace(path.Base(resp.Node.Key), "-", "/", -1)
+	switch resp.Action {
+	case "create", "set", "update":
+		var ri routeInfo
+		err := json.Unmarshal([]byte(resp.Node.Value), &ri)
+		if err != nil {
+			log.Println(err.Error())
+			return
+		}
+		err = sm.routeManager.Insert(ri.PublicIP, subnet)
+		if err != nil {
+			log.Println(err.Error())
+		}
+	case "delete":
+		err := sm.routeManager.Delete(subnet)
+		if err != nil {
+			log.Println(err.Error())
+		}
+	default:
+		log.Printf("unknown etcd action: %s\n", resp.Action)
+	}
+}
+
 func (sm stateManager) monitorSubnets() {
 	sm.wg.Add(1)
 	defer sm.wg.Done()
-	respChan := make(chan struct{})
+	respChan := make(chan *etcd.Response)
 	go func() {
 		for {
-			resp, err := sm.client.Watch(sm.prefix, sm.lastIndex+1, true, nil, sm.stopChan)
+			resp, err := sm.client.Watch(sm.prefix, sm.lastIndex, true, nil, sm.stopChan)
 			if err != nil {
 				log.Println(err.Error())
 				time.Sleep(10 * time.Second)
 				continue
 			}
-			sm.lastIndex = resp.Node.ModifiedIndex
-			respChan <- struct{}{}
+			sm.lastIndex = resp.Node.ModifiedIndex + 1
+			respChan <- resp
 		}
 	}()
 	for {
 		select {
-		case <-respChan:
-			sm.syncRoutes()
+		case resp := <-respChan:
+			sm.syncRoute(resp)
 		case <-sm.stopChan:
 			break
 		}
@@ -103,7 +130,7 @@ func (sm stateManager) reconciler() {
 		case <-sm.stopChan:
 			break
 		case <-time.After(time.Duration(sm.syncInterval) * time.Second):
-			sm.syncRoutes()
+			sm.syncAllRoutes()
 		}
 	}
 }
