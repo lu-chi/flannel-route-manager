@@ -54,10 +54,18 @@ func (rm GoogleRouterManager) Sync(routeTable map[string]string) error {
 	if err != nil {
 		return err
 	}
+	routeMap, err := rm.routeMap()
+	if err != nil {
+		return err
+	}
+	if err := rm.deleteStaleRoutes(routeTable, routeMap); err != nil {
+		return err
+	}
 	tags := make([]string, 0)
 	for ip, subnet := range routeTable {
+		name := formatRouteName(rm.network, subnet)
 		route := &compute.Route{
-			Name:      formatRouteName(rm.network, subnet),
+			Name:      name,
 			DestRange: subnet,
 			Network:   network.SelfLink,
 			NextHopIp: ip,
@@ -70,6 +78,54 @@ func (rm GoogleRouterManager) Sync(routeTable map[string]string) error {
 		}
 	}
 	return nil
+}
+
+func (rm GoogleRouterManager) deleteStaleRoutes(routeTable map[string]string, routeMap map[string]*compute.Route) error {
+	for _, route := range routeMap {
+		subnet, ok := routeTable[route.NextHopIp]
+		if !ok || subnet != route.DestRange {
+			fmt.Printf("delete route: %s\n", route.Name)
+			_, err := rm.computeService.Routes.Delete(rm.project, route.Name).Do()
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (rm GoogleRouterManager) routeMap() (map[string]*compute.Route, error) {
+	m := make(map[string]*compute.Route)
+	routes, err := rm.routes()
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range routes {
+		m[r.Name] = r
+	}
+	return m, nil
+}
+
+func (rm GoogleRouterManager) routes() ([]*compute.Route, error) {
+	rs := make([]*compute.Route, 0)
+	filter := fmt.Sprintf("name eq flannel-%s-.*", rm.network)
+	routeList, err := rm.computeService.Routes.List(rm.project).Filter(filter).Do()
+	if err != nil {
+		return nil, err
+	}
+	for {
+		for _, r := range routeList.Items {
+			rs = append(rs, r)
+		}
+		if routeList.NextPageToken == "" {
+			break
+		}
+		routeList, err = rm.computeService.Routes.List(rm.project).PageToken(routeList.NextPageToken).Do()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return rs, nil
 }
 
 func formatRouteName(network, subnet string) string {
