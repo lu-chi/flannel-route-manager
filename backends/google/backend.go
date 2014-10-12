@@ -1,6 +1,3 @@
-// Copyright (c) 2014 Kelsey Hightower. All rights reserved.
-// Use of this source code is governed by the Apache License, Version 2.0
-// that can be found in the LICENSE file.
 package google
 
 import (
@@ -49,21 +46,19 @@ func New() (*GoogleRouterManager, error) {
 	return rm, nil
 }
 
-func (rm GoogleRouterManager) DeleteAllRoutes() ([]string, error) {
+func (rm GoogleRouterManager) DeleteAllRoutes() error {
 	var lastErr error
-	deleted := make([]string, 0)
 	routes, err := rm.routes()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	for _, r := range routes {
 		_, err := rm.computeService.Routes.Delete(rm.project, r.Name).Do()
 		if err != nil {
 			lastErr = err
 		}
-		deleted = append(deleted, r.Name)
 	}
-	return deleted, lastErr
+	return lastErr
 }
 
 func (rm GoogleRouterManager) Sync(routeTable map[string]string) error {
