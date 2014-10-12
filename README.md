@@ -65,19 +65,6 @@ godep go build .
 
 ## Single Node Demo
 
-### Edit the Cloud Config
-
-Add your GCE project ID to the cloud-config.yaml file:
-
-```
-write_files:
-  - path: /etc/flannel-route-manager.conf
-    permissions: 0644
-    owner: root
-    content: |
-      GOOGLE_PROJECT_ID=""
-```
-
 ### Create the Compute Instance
 
 The following command will create a GCE instance with flannel, running in subnet allocate only mode, and the flannel-route-manager up and running. 
@@ -89,7 +76,7 @@ $ gcloud compute instances create flannel-route-manager-test \
 --machine-type g1-small \
 --can-ip-forward \
 --scopes compute-rw \
---metadata-from-file user-data=cloud-config.yaml \
+--metadata-from-file user-data=ext/cloud-config.yaml \
 --zone us-central1-a
 ```
 
