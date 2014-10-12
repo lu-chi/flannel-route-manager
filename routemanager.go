@@ -4,5 +4,6 @@
 package main
 
 type RouteManager interface {
+	DeleteAllRoutes() ([]string, error)
 	Sync(map[string]string) error
 }

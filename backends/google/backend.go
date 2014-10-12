@@ -49,6 +49,23 @@ func New() (*GoogleRouterManager, error) {
 	return rm, nil
 }
 
+func (rm GoogleRouterManager) DeleteAllRoutes() ([]string, error) {
+	var lastErr error
+	deleted := make([]string, 0)
+	routes, err := rm.routes()
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range routes {
+		_, err := rm.computeService.Routes.Delete(rm.project, r.Name).Do()
+		if err != nil {
+			lastErr = err
+		}
+		deleted = append(deleted, r.Name)
+	}
+	return deleted, lastErr
+}
+
 func (rm GoogleRouterManager) Sync(routeTable map[string]string) error {
 	network, err := rm.computeService.Networks.Get(rm.project, rm.network).Do()
 	if err != nil {

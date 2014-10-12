@@ -24,6 +24,7 @@ var (
 	backend      string
 	etcdEndpoint string
 	etcdPrefix   string
+	deleteRoutes bool
 	syncInterval int
 )
 
@@ -35,6 +36,7 @@ func init() {
 	flag.StringVar(&backend, "backend", "google", "backend provider")
 	flag.StringVar(&etcdEndpoint, "etcd-endpoint", "http://127.0.0.1:4001", "etcd endpoint")
 	flag.StringVar(&etcdPrefix, "etcd-prefix", "/coreos.com/network", "etcd prefix")
+	flag.BoolVar(&deleteRoutes, "delete-all-routes", false, "delete all flannel routes")
 	flag.IntVar(&syncInterval, "sync-interval", 30, "sync interval")
 }
 
@@ -51,6 +53,17 @@ func main() {
 		}
 	default:
 		log.Fatal("unknown backend ", backend)
+	}
+	if deleteRoutes {
+		routes, err := routeManager.DeleteAllRoutes()
+		if err != nil {
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
+		for _, r := range routes {
+			fmt.Printf("deleted %s\n", r)
+		}
+		os.Exit(0)
 	}
 	etcdClient := etcd.NewClient([]string{etcdEndpoint})
 	key := path.Join(etcdPrefix, "subnets")
