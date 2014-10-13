@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kelseyhightower/flannel-route-manager/backend"
+
 	"code.google.com/p/goauth2/compute/serviceaccount"
 	"code.google.com/p/google-api-go-client/compute/v1"
 )
@@ -47,29 +49,34 @@ func New() (*RouteManager, error) {
 	return rm, nil
 }
 
-func (rm RouteManager) Delete(subnet string) error {
-	return rm.delete(formatRouteName(rm.network.Name, subnet))
+func (rm RouteManager) Delete(subnet string) (string, error) {
+	name := formatRouteName(rm.network.Name, subnet)
+	err := rm.delete(name)
+	return name, err
 }
 
-func (rm RouteManager) DeleteAllRoutes() error {
+func (rm RouteManager) DeleteAllRoutes() ([]string, error) {
+	deleted := []string{}
 	var lastError error
 	rs, err := rm.routes()
 	if err != nil {
-		return err
+		return deleted, err
 	}
 	for _, r := range rs {
 		if err := rm.delete(r.Name); err != nil {
 			lastError = err
 		}
+		deleted = append(deleted, r.Name)
 	}
-	return lastError
+	return deleted, lastError
 }
 
-func (rm RouteManager) Insert(ip, subnet string) error {
-	return rm.insert(ip, subnet)
+func (rm RouteManager) Insert(ip, subnet string) (string, error) {
+	name := formatRouteName(rm.network.Name, subnet)
+	return name, rm.insert(ip, subnet, name)
 }
 
-func (rm RouteManager) Sync(routes map[string]string) error {
+func (rm RouteManager) Sync(routes map[string]string) (*backend.SyncResponse, error) {
 	return rm.sync(routes)
 }
 
@@ -78,8 +85,7 @@ func (rm RouteManager) delete(name string) error {
 	return err
 }
 
-func (rm RouteManager) insert(ip, subnet string) error {
-	name := formatRouteName(rm.network.Name, subnet)
+func (rm RouteManager) insert(ip, subnet, name string) error {
 	route := &compute.Route{
 		Name:      name,
 		DestRange: subnet,
@@ -92,30 +98,37 @@ func (rm RouteManager) insert(ip, subnet string) error {
 	return err
 }
 
-func (rm RouteManager) sync(in map[string]string) error {
+func (rm RouteManager) sync(in map[string]string) (*backend.SyncResponse, error) {
+	response := &backend.SyncResponse{
+		Inserted: []string{},
+		Deleted:  []string{},
+	}
 	existing := make(map[string]bool)
 	routemap, err := rm.routemap()
 	if err != nil {
-		return err
+		return response, err
 	}
 	for _, route := range routemap {
 		subnet, ok := in[route.NextHopIp]
 		if !ok || subnet != route.DestRange {
 			if err := rm.delete(route.Name); err != nil {
-				return err
+				return response, err
 			}
+			response.Deleted = append(response.Deleted, route.Name)
 			continue
 		}
 		existing[route.NextHopIp] = true
 	}
 	for ip, subnet := range in {
 		if !existing[ip] {
-			if err := rm.insert(ip, subnet); err != nil {
-				return err
+			name := formatRouteName(rm.network.Name, subnet)
+			if err := rm.insert(ip, subnet, name); err != nil {
+				return response, err
 			}
+			response.Inserted = append(response.Inserted, name)
 		}
 	}
-	return nil
+	return response, nil
 }
 
 func (rm RouteManager) routemap() (map[string]*compute.Route, error) {

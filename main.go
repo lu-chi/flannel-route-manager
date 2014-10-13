@@ -31,7 +31,7 @@ func init() {
 
 func main() {
 	flag.Parse()
-	log.SetFlags(0)
+	log.SetFlags(log.LstdFlags)
 	var routeManager backend.RouteManager
 	var err error
 	switch backendName {
@@ -45,7 +45,12 @@ func main() {
 	}
 	if deleteRoutes {
 		log.Println("deleting all routes")
-		err := routeManager.DeleteAllRoutes()
+		routes, err := routeManager.DeleteAllRoutes()
+		if routes != nil {
+			for _, r := range routes {
+				log.Printf("deleted: %s\n", r)
+			}
+		}
 		if err != nil {
 			fmt.Println(err.Error())
 			os.Exit(1)

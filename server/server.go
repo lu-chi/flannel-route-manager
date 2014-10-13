@@ -67,8 +67,17 @@ func (s *Server) syncAllRoutes() error {
 		}
 		routeTable[ri.PublicIP] = subnet
 	}
-	log.Printf("syncing all routes")
-	err = s.routeManager.Sync(routeTable)
+	log.Printf("reconciler starting...")
+	defer log.Printf("reconciler done")
+	syncResp, err := s.routeManager.Sync(routeTable)
+	if resp != nil {
+		for _, r := range syncResp.Inserted {
+			log.Printf("reconciler: inserted %s\n", r)
+		}
+		for _, r := range syncResp.Deleted {
+			log.Printf("reconciler: deleted %s\n", r)
+		}
+	}
 	if err != nil {
 		return err
 	}
@@ -87,17 +96,19 @@ func (s *Server) syncRoute(resp *etcd.Response) {
 			log.Println(err.Error())
 			return
 		}
-		log.Printf("inserting route: %s -> %s\n", ri.PublicIP, subnet)
-		err = s.routeManager.Insert(ri.PublicIP, subnet)
+		name, err := s.routeManager.Insert(ri.PublicIP, subnet)
 		if err != nil {
 			log.Println(err.Error())
+			return
 		}
+		log.Printf("monitor: inserted %s\n", name)
 	case "delete":
-		log.Printf("deleting route: %s", subnet)
-		err := s.routeManager.Delete(subnet)
+		name, err := s.routeManager.Delete(subnet)
 		if err != nil {
 			log.Println(err.Error())
+			return
 		}
+		log.Printf("monitor: deleted %s\n", name)
 	default:
 		log.Printf("unknown etcd action: %s\n", resp.Action)
 	}
