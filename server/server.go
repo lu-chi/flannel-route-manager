@@ -87,11 +87,13 @@ func (s *Server) syncRoute(resp *etcd.Response) {
 			log.Println(err.Error())
 			return
 		}
+		log.Printf("inserting route: %s -> %s\n", ri.PublicIP, subnet)
 		err = s.routeManager.Insert(ri.PublicIP, subnet)
 		if err != nil {
 			log.Println(err.Error())
 		}
 	case "delete":
+		log.Printf("deleting route: %s", subnet)
 		err := s.routeManager.Delete(subnet)
 		if err != nil {
 			log.Println(err.Error())
@@ -104,11 +106,19 @@ func (s *Server) syncRoute(resp *etcd.Response) {
 func (s *Server) monitorSubnets() {
 	s.wg.Add(1)
 	defer s.wg.Done()
+	doneChan := make(chan struct{})
+	stopWatchChan := make(chan bool)
 	respChan := make(chan *etcd.Response)
 	go func() {
+		defer close(doneChan)
 		for {
-			resp, err := s.client.Watch(s.prefix, s.lastIndex, true, nil, s.stopChan)
+			resp, err := s.client.Watch(s.prefix, s.lastIndex, true, nil, stopWatchChan)
 			if err != nil {
+				_, ok := <-stopWatchChan
+				if !ok {
+					log.Println("stopping etcd watch...")
+					return
+				}
 				log.Println(err.Error())
 				time.Sleep(10 * time.Second)
 				continue
@@ -122,7 +132,10 @@ func (s *Server) monitorSubnets() {
 		case resp := <-respChan:
 			s.syncRoute(resp)
 		case <-s.stopChan:
-			break
+			close(stopWatchChan)
+			<-doneChan
+			log.Println("stopping monitorSubnets...")
+			return
 		}
 	}
 }
@@ -133,7 +146,8 @@ func (s *Server) reconciler() {
 	for {
 		select {
 		case <-s.stopChan:
-			break
+			log.Println("stopping reconciler...")
+			return
 		case <-time.After(time.Duration(s.syncInterval) * time.Second):
 			s.syncAllRoutes()
 		}

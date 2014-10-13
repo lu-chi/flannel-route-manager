@@ -72,7 +72,7 @@ The following command will create a GCE instance with flannel, running in subnet
 ```
 $ gcloud compute instances create flannel-route-manager-test \
 --image-project coreos-cloud \
---image coreos-alpha-440-0-0-v20140915 \
+--image coreos-alpha-459-0-0-v20141003 \
 --machine-type g1-small \
 --can-ip-forward \
 --scopes compute-rw \
@@ -81,3 +81,9 @@ $ gcloud compute instances create flannel-route-manager-test \
 ```
 
 Once the instance is fully booted you should see a new route added under the default network.
+
+### Listing Routes
+
+```
+gcloud compute routes list
+```

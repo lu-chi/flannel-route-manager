@@ -8,9 +8,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/kelseyhightower/flannel-route-manager/server"
 	"github.com/kelseyhightower/flannel-route-manager/backend"
 	"github.com/kelseyhightower/flannel-route-manager/backend/google"
+	"github.com/kelseyhightower/flannel-route-manager/server"
 )
 
 var (
