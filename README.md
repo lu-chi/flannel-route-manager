@@ -19,11 +19,29 @@ Usage of ./flannel-route-manager:
   -sync-interval=30: sync interval
 ```
 
-### Example
+### Delete all routes
+
+```
+$ /opt/bin/flannel-route-manager -delete-all-routes
+2014/10/13 07:16:22 deleting all routes
+2014/10/13 07:16:23 deleted: flannel-default-10-244-72-0-24
+```
+
+### Monitor subnet changes and sync routes
+
+Running the flannel-route-manager service starts a watcher and reconciler goroutine. 
 
 ```
 flannel-route-manager
+2014/10/13 07:17:39 starting fleet route manager...
+2014/10/13 07:17:39 reconciler starting...
+2014/10/13 07:17:40 reconciler: inserted flannel-default-10-244-72-0-24
+2014/10/13 07:17:40 reconciler done
+2014/10/13 07:17:47 monitor: deleted flannel-default-10-244-72-0-24
+2014/10/13 07:17:52 monitor: inserted flannel-default-10-244-72-0-24
 ```
+
+> The reconciler interval can be tuned with the `-sync-interval` flag.
 
 ## Backends
 
@@ -45,7 +63,7 @@ flannel-default-10-0-63-0-24
 * [instance service account](https://developers.google.com/compute/docs/authentication#using)
 * [project ID](https://developers.google.com/compute/docs/overview#projectids)
 
-The google backend relies on instance service accounts for authenitcation. See [Preparing an instance to use service accounts](https://developers.google.com/compute/docs/authentication#using) for more details.
+The google backend relies on instance service accounts for authentication. See [Preparing an instance to use service accounts](https://developers.google.com/compute/docs/authentication#using) for more details.
 
 Creating a compute instance with the right permissions and IP forwarding enabled:
 
