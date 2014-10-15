@@ -123,7 +123,7 @@ func (s *Server) monitorSubnets() {
 	go func() {
 		defer close(doneChan)
 		for {
-			resp, err := s.client.Watch(s.prefix, s.lastIndex, true, nil, stopWatchChan)
+			resp, err := s.client.Watch(s.prefix, s.lastIndex+1, true, nil, stopWatchChan)
 			if err != nil {
 				_, ok := <-stopWatchChan
 				if !ok {
@@ -134,7 +134,7 @@ func (s *Server) monitorSubnets() {
 				time.Sleep(10 * time.Second)
 				continue
 			}
-			s.lastIndex = resp.Node.ModifiedIndex + 1
+			s.lastIndex = resp.Node.ModifiedIndex
 			respChan <- resp
 		}
 	}()
